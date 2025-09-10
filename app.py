@@ -51,6 +51,11 @@ def webhook():
 
         return "ok", 200
 
+@app.route('/')
+def home():
+    return "WhatsApp chatbot webhook is running!"
+
+
 if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", 5000))
