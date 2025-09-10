@@ -1,25 +1,64 @@
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
+import openai
 import os
 
 app = Flask(__name__)
 
+# ✅ Load OpenAI API Key from environment variable
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
+# ✅ Option A: Use hardcoded paragraph (or see Option B below for file)
+knowledge_paragraph = """
+Welcome to MBot! We are an AI-powered service helping small businesses.
+We are located in the heart of Berlin near Kaisar DAM.
+Our business hours are 9 AM to 5 PM, Monday through Friday.
+We offer full refunds within 30 days of purchase, no questions asked.
+For support, we are available 24/7 via email and WhatsApp. Do you want to place an order then we have variety of dishes and lunch breakfast. Contact us for full support.  
+"""
+
+# ✅ Optional: Load from a file instead
+# with open("knowledge.txt", "r") as f:
+#     knowledge_paragraph = f.read()
+
+def generate_ai_response(user_input):
+    prompt = f"""
+You are a helpful assistant. Use the information below to answer the user's question.
+If the answer is not found, reply: "I'm sorry, I couldn't find an answer to that."
+
+Information:
+{knowledge_paragraph}
+
+User question: {user_input}
+"""
+
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",  # or use "gpt-3.5-turbo"
+        messages=[
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.2
+    )
+
+    return response['choices'][0]['message']['content'].strip()
+
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    incoming_msg = request.values.get('Body', '').lower()
-    print("Received:", incoming_msg)
+    incoming_msg = request.values.get('Body', '').strip()
+    print("User said:", incoming_msg)
 
+    # Generate AI-based response
+    reply = generate_ai_response(incoming_msg)
+
+    # Return WhatsApp response
     resp = MessagingResponse()
     msg = resp.message()
+    msg.body(reply)
 
-    if 'hi' in incoming_msg:
-        msg.body("Hello from MBot on Render!")
-    else:
-        msg.body("Sorry, I didn't understand that.")
-
-    return str(resp), 200  # Make sure to return status code 200
+    return str(resp), 200
 
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))  # Get Render-provided port
-    app.run(host="0.0.0.0", port=port, debug=True)  # Bind to all interfaces
+    port = int(os.environ.get("PORT", 5000))  # for Render
+    app.run(host="0.0.0.0", port=port)
